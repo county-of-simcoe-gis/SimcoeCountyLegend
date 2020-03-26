@@ -1,0 +1,1 @@
+robocopy D:\0_Projects\Websites\React\SimcoeCountyLegend\build \\paradise\c$\GIS\node\legend\build /e /xo /FFT /XA:H /R:1 /W:1 /V /TEE

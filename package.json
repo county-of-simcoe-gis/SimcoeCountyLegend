@@ -1,11 +1,16 @@
 {
   "name": "legend",
+  "homepage": "https://opengis.simcoe.ca/legend",
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "classnames": "^2.2.6",
     "react": "^16.8.6",
     "react-dom": "^16.8.6",
-    "react-scripts": "3.0.1"
+    "react-masonry-css": "^1.0.12",
+    "react-scripts": "3.0.1",
+    "react-select": "^3.0.4",
+    "shortid": "^2.2.14"
   },
   "scripts": {
     "start": "react-scripts start",
