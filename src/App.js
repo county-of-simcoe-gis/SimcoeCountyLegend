@@ -9,6 +9,13 @@ import Header from "./Header";
 import GroupItem from "./GroupItem";
 import Select from "react-select";
 import cx from "classnames";
+import mainConfig from "./config.json";
+import ReactGA from "react-ga";
+
+if (mainConfig.googleAnalyticsID !== undefined && mainConfig.googleAnalyticsID !== "") {
+  ReactGA.initialize(mainConfig.googleAnalyticsID);
+  ReactGA.pageview(window.location.pathname + window.location.search);
+}
 
 // THIS APP ACCEPTS LIST OF GROUPS
 //http://localhost:3001/?All_Layers=1&Popular=1
