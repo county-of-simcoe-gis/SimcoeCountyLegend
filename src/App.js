@@ -13,8 +13,8 @@ import cx from "classnames";
 // THIS APP ACCEPTS LIST OF GROUPS
 //http://localhost:3001/?All_Layers=1&Popular=1
 
-const groupUrlTemplate = groupName => `https://opengis.simcoe.ca/geoserver/rest/layergroups/${groupName}.json`;
-const styleUrlTemplate = layerName => `https://opengis.simcoe.ca/geoserver/wms?REQUEST=GetLegendGraphic&VERSION=1.0.0&FORMAT=image/png&WIDTH=20&HEIGHT=20&LAYER=${layerName}`;
+const groupUrlTemplate = (groupName) => `https://opengis.simcoe.ca/geoserver/rest/layergroups/${groupName}.json`;
+const styleUrlTemplate = (layerName) => `https://opengis.simcoe.ca/geoserver/wms?REQUEST=GetLegendGraphic&VERSION=1.0.0&FORMAT=image/png&WIDTH=20&HEIGHT=20&LAYER=${layerName}`;
 const params = helpers.getParams(window.location.href);
 console.log(params);
 
@@ -25,20 +25,20 @@ class App extends Component {
     this.state = {
       groups: [],
       selectedGroups: [],
-      justifyCenter: false
+      justifyCenter: false,
     };
   }
 
   componentDidMount() {
     let selectedGroups = [];
-    Object.keys(params).forEach(groupName => {
+    Object.keys(params).forEach((groupName) => {
       const onOrOff = params[groupName];
       const groupUrl = groupUrlTemplate(groupName);
       let layers = [];
-      helpers.getJSON(groupUrl, groupInfo => {
+      helpers.getJSON(groupUrl, (groupInfo) => {
         const published = groupInfo.layerGroup.publishables.published;
 
-        published.forEach(layer1 => {
+        published.forEach((layer1) => {
           const fullLayerName = layer1.name;
           const layerName = fullLayerName.split(":")[1];
           const obj = { imageUrl: styleUrlTemplate(fullLayerName), layerName: layerName };
@@ -49,21 +49,21 @@ class App extends Component {
         if (onOrOff === "1") selectedGroups.push(obj);
 
         // ADD NEW FEATURE TO STATE
-        this.setState(prevState => ({
+        this.setState((prevState) => ({
           groups: [obj, ...prevState.groups],
-          selectedGroups
+          selectedGroups,
         }));
       });
     });
   }
 
-  handleChange = selectedGroups => {
+  handleChange = (selectedGroups) => {
     this.setState({ selectedGroups });
     console.log(`Option selected:`, selectedGroups);
   };
 
   render() {
-    const childElements = this.state.selectedGroups.map(group => {
+    const childElements = this.state.selectedGroups.map((group) => {
       return <GroupItem key={helpers.getUID()} group={group} center={this.state.justifyCenter} />;
     });
 
@@ -71,7 +71,7 @@ class App extends Component {
       default: 4,
       2460: 3,
       1640: 2,
-      900: 1
+      900: 1,
     };
 
     return (
@@ -109,7 +109,7 @@ class App extends Component {
           <div style={{ float: "left" }}>
             Layer info page generated using{" "}
             <a href="https://opengis.simcoe.ca" target="_blank" rel="noopener noreferrer">
-              maps.simcoe.ca
+              opengis.simcoe.ca
             </a>{" "}
             interactive mapping.
             <br />
