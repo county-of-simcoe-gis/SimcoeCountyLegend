@@ -5,19 +5,19 @@ export function getJSON(url, callback) {
   return fetch(url, {
     headers: {
       "Content-Type": "application/json",
-      Accept: "application/json"
-    }
+      Accept: "application/json",
+    },
   })
-    .then(function(response) {
+    .then(function (response) {
       return response.json();
     })
-    .then(function(myJson) {
+    .then(function (myJson) {
       callback(myJson);
     });
 }
 
 export function toTitleCase(str) {
-  return str.replace(/\w\S*/g, function(txt) {
+  return str.replace(/\w\S*/g, function (txt) {
     return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();
   });
 }
@@ -54,6 +54,20 @@ export function formatDate() {
 
 export function replaceAllInString(str, find, replace) {
   return str.replace(new RegExp(_escapeRegExp(find), "g"), replace);
+}
+
+// HTTP GET (NO WAITING)
+export function httpGetText(url, callback) {
+  return fetch(url)
+    .then((response) => response.text())
+    .then((responseText) => {
+      // CALLBACK WITH RESULT
+      if (callback !== undefined) callback(responseText);
+    })
+    .catch((error) => {
+      httpGetText(url.replace("opengis.simcoe.ca", "opengis2.simcoe.ca"), callback);
+      console.error(error);
+    });
 }
 
 function _escapeRegExp(str) {

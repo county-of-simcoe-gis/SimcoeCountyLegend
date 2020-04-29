@@ -11,19 +11,19 @@ import Select from "react-select";
 import cx from "classnames";
 import mainConfig from "./config.json";
 import ReactGA from "react-ga";
+import xml2js from "xml2js";
 
 if (mainConfig.googleAnalyticsID !== undefined && mainConfig.googleAnalyticsID !== "") {
   ReactGA.initialize(mainConfig.googleAnalyticsID);
   ReactGA.pageview(window.location.pathname + window.location.search);
 }
 
+const mainGroupUrl = mainConfig.geoserverLayerGroupsUrl;
+
 // THIS APP ACCEPTS LIST OF GROUPS
 //http://localhost:3001/?All_Layers=1&Popular=1
 
-const groupUrlTemplate = (groupName) => `https://opengis.simcoe.ca/geoserver/rest/layergroups/${groupName}.json`;
-const styleUrlTemplate = (layerName) => `https://opengis.simcoe.ca/geoserver/wms?REQUEST=GetLegendGraphic&VERSION=1.0.0&FORMAT=image/png&WIDTH=20&HEIGHT=20&LAYER=${layerName}`;
 const params = helpers.getParams(window.location.href);
-console.log(params);
 
 class App extends Component {
   constructor(props) {
@@ -37,37 +37,165 @@ class App extends Component {
   }
 
   componentDidMount() {
-    let selectedGroups = [];
-    Object.keys(params).forEach((groupName) => {
-      const onOrOff = params[groupName];
-      const groupUrl = groupUrlTemplate(groupName);
-      let layers = [];
-      helpers.getJSON(groupUrl, (groupInfo) => {
-        const published = groupInfo.layerGroup.publishables.published;
-
-        published.forEach((layer1) => {
-          const fullLayerName = layer1.name;
-          const layerName = fullLayerName.split(":")[1];
-          const obj = { imageUrl: styleUrlTemplate(fullLayerName), layerName: layerName };
-          layers.push(obj);
+    this.getGroups(mainGroupUrl, (result) => {
+      let selectedGroups = [];
+      const groups = result[0];
+      let groupsObj = [];
+      groups.forEach((group) => {
+        const onOrOff = params[group.value.split(":")[1]];
+        let layers = [];
+        group.layers.forEach((layer) => {
+          const layerObj = { imageUrl: layer.styleUrl, layerName: layer.name.split(":")[1] };
+          layers.push(layerObj);
         });
-
-        const obj = { value: groupName, label: helpers.replaceAllInString(groupName, "_", " "), layers: layers };
-        if (onOrOff === "1") selectedGroups.push(obj);
-
-        // ADD NEW FEATURE TO STATE
-        this.setState((prevState) => ({
-          groups: [obj, ...prevState.groups],
-          selectedGroups,
-        }));
+        const groupObj = { label: group.label, value: group.value.split(":")[1], layers: layers };
+        if (onOrOff === "1") selectedGroups.push(groupObj);
+        groupsObj.push(groupObj);
       });
+
+      // ADD NEW FEATURE TO STATE
+      this.setState({ groups: groupsObj, selectedGroups });
     });
   }
 
   handleChange = (selectedGroups) => {
     this.setState({ selectedGroups });
-    console.log(`Option selected:`, selectedGroups);
   };
+
+  // GET GROUPS FROM GET CAPABILITIES
+  getGroups(url, callback) {
+    const layerIndexStart = 100;
+    const urlType = "group";
+    let defaultGroup = null;
+    let isDefault = false;
+    let groups = [];
+    const remove_underscore = (name) => {
+      return helpers.replaceAllInString(name, "_", " ");
+    };
+
+    helpers.httpGetText(url, (result) => {
+      var parser = new xml2js.Parser();
+
+      // PARSE TO JSON
+      parser.parseString(result, (err, result) => {
+        let groupLayerList =
+          urlType === "root"
+            ? result.WMS_Capabilities.Capability[0].Layer[0].Layer
+            : urlType === "group"
+            ? result.WMS_Capabilities.Capability[0].Layer[0].Layer[0].Layer
+            : result.WMS_Capabilities.Capability[0].Layer[0].Layer;
+        let parentGroup =
+          urlType === "root"
+            ? result.WMS_Capabilities.Capability[0].Layer[0].Layer[0]
+            : urlType === "group"
+            ? result.WMS_Capabilities.Capability[0].Layer[0].Layer[0]
+            : result.WMS_Capabilities.Capability[0].Layer[0].Layer[0];
+
+        groupLayerList.forEach((layerInfo) => {
+          if (layerInfo.Layer !== undefined) {
+            const groupName = layerInfo.Name[0];
+            const groupDisplayName = layerInfo.Title[0];
+            const groupUrl = url.split("/geoserver/")[0] + "/geoserver/" + helpers.replaceAllInString(groupName, ":", "/") + "/ows?service=wms&version=1.3.0&request=GetCapabilities";
+            const fullGroupUrl = url.split("/geoserver/")[0] + "/geoserver/" + helpers.replaceAllInString(groupName, ":", "/") + "/ows?service=wms&version=1.3.0&request=GetCapabilities";
+
+            let layerList = [];
+            if (layerInfo.Layer !== undefined) {
+              const groupLayerList = layerInfo.Layer;
+
+              let layerIndex = groupLayerList.length + layerIndexStart;
+              const tmpGroupObj = {
+                value: groupName,
+                label: remove_underscore(groupDisplayName),
+                url: groupUrl,
+                wmsGroupUrl: fullGroupUrl,
+              };
+
+              const buildLayers = (layers) => {
+                if (layers === undefined) return;
+                layers.forEach((currentLayer) => {
+                  if (!this.isDuplicate(layerList, currentLayer.Name[0])) {
+                    this.buildLayerByGroup(tmpGroupObj, currentLayer, layerIndex, (result) => {
+                      layerList.push(result);
+                    });
+                    layerIndex--;
+
+                    buildLayers(currentLayer.Layer);
+                  }
+                });
+              };
+
+              buildLayers(layerInfo.Layer);
+            }
+
+            const groupObj = {
+              value: groupName,
+              label: remove_underscore(groupDisplayName),
+              url: groupUrl,
+              defaultGroup: isDefault,
+              wmsGroupUrl: fullGroupUrl,
+              layers: layerList,
+            };
+            if (groupObj.layers.length >= 1) {
+              groups.push(groupObj);
+              if (isDefault) {
+                defaultGroup = groupObj;
+                isDefault = false;
+              }
+            }
+          }
+        });
+      });
+      if (defaultGroup === undefined || defaultGroup === null) defaultGroup = groups[0];
+
+      callback([groups, defaultGroup]);
+    });
+  }
+
+  buildLayerByGroup(group, layer, layerIndex, callback) {
+    if (layer.Layer === undefined) {
+      const layerNameOnly = layer.Name[0];
+      let layerTitle = layer.Title[0];
+      if (layerTitle === undefined) layerTitle = layerNameOnly;
+      const styleUrl = layer.Style[0].LegendURL[0].OnlineResource[0].$["xlink:href"].replace("http", "https");
+      const serverUrl = group.wmsGroupUrl.split("/geoserver/")[0] + "/geoserver";
+      const wfsUrlTemplate = (serverUrl, layerName) => `${serverUrl}/wfs?service=wfs&version=2.0.0&request=GetFeature&typeNames=${layerName}&outputFormat=application/json&cql_filter=`;
+      const wfsUrl = wfsUrlTemplate(serverUrl, layer.Name[0]);
+
+      const metadataUrlTemplate = (serverUrl, layerName) => `${serverUrl}/rest/layers/${layerName}.json`;
+      const metadataUrl = metadataUrlTemplate(serverUrl, layer.Name[0]);
+
+      // TOC DISPLAY NAME
+      const tocDisplayName = layerTitle;
+
+      const returnLayer = {
+        name: layerNameOnly, // FRIENDLY NAME
+        height: 30, // HEIGHT OF DOM ROW FOR AUTOSIZER
+        drawIndex: layerIndex, // INDEX USED BY VIRTUAL LIST
+        index: layerIndex, // INDEX USED BY VIRTUAL LIST
+        styleUrl: styleUrl, // WMS URL TO LEGEND SWATCH IMAGE
+        showLegend: false, // SHOW LEGEND USING PLUS-MINUS IN TOC
+        legendHeight: -1, // HEIGHT OF IMAGE USED BY AUTOSIZER
+        legendImage: null, // IMAGE DATA, STORED ONCE USER VIEWS LEGEND
+        metadataUrl: metadataUrl, // ROOT LAYER INFO FROM GROUP END POINT
+        wfsUrl: wfsUrl,
+        tocDisplayName: tocDisplayName, // DISPLAY NAME USED FOR TOC LAYER NAME
+        group: group.value,
+        groupName: group.label,
+        serverUrl: serverUrl + "/", // BASE URL FOR GEOSERVER
+      };
+      callback(returnLayer);
+    }
+  }
+
+  isDuplicate(layerList, newLayerName) {
+    let returnValue = false;
+    layerList.forEach((layer) => {
+      if (layer.name === newLayerName) {
+        returnValue = true;
+      }
+    });
+    return returnValue;
+  }
 
   render() {
     const childElements = this.state.selectedGroups.map((group) => {

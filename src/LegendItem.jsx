@@ -5,6 +5,7 @@ import cx from "classnames";
 
 function LegendItem(props) {
   const { layer } = props;
+  // console.log(layer.imageUrl);
   return (
     <div className={props.center ? cx(styles.container, styles.containerCenter) : styles.container}>
       <label className={styles.title}>{helpers.replaceAllInString(layer.layerName, "_", " ")}</label>
