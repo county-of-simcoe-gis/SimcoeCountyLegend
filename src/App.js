@@ -59,6 +59,7 @@ class App extends Component {
   }
 
   handleChange = (selectedGroups) => {
+    if (selectedGroups === null) selectedGroups = [];
     this.setState({ selectedGroups });
   };
 
@@ -151,12 +152,30 @@ class App extends Component {
     });
   }
 
+  _getStaticImageLegend(keywords) {
+    if (keywords === undefined) return false;
+    const keyword = keywords.find((item) => {
+      return item.indexOf("STATIC_IMAGE_LEGEND") !== -1;
+    });
+    if (keyword !== undefined) return true;
+    else return false;
+  }
+
   buildLayerByGroup(group, layer, layerIndex, callback) {
     if (layer.Layer === undefined) {
       const layerNameOnly = layer.Name[0];
       let layerTitle = layer.Title[0];
       if (layerTitle === undefined) layerTitle = layerNameOnly;
-      const styleUrl = layer.Style[0].LegendURL[0].OnlineResource[0].$["xlink:href"].replace("http", "https");
+      let keywords = [];
+      if ( layer.KeywordList !== undefined && layer.KeywordList.length > 0) keywords = layer.KeywordList[0].Keyword;
+
+      let styleUrl = layer.Style[0].LegendURL[0].OnlineResource[0].$["xlink:href"].replace("http", "https");
+      let legendSizeOverride = this._getStaticImageLegend(keywords);
+
+      if (legendSizeOverride && styleUrl !== "" ) {
+        const legendSize = layer.Style !== undefined ? layer.Style[0].LegendURL[0].$ : [20,20];
+        styleUrl = styleUrl.replace("width=20", `width=${legendSize.width}`).replace("height=20", `height=${legendSize.height}`);
+      }
       const serverUrl = group.wmsGroupUrl.split("/geoserver/")[0] + "/geoserver";
       const wfsUrlTemplate = (serverUrl, layerName) => `${serverUrl}/wfs?service=wfs&version=2.0.0&request=GetFeature&typeNames=${layerName}&outputFormat=application/json&cql_filter=`;
       const wfsUrl = wfsUrlTemplate(serverUrl, layer.Name[0]);
@@ -198,7 +217,7 @@ class App extends Component {
   }
 
   render() {
-  
+    
     const childElements = this.state.selectedGroups.map((group) => {
       return <GroupItem key={helpers.getUID()} group={group} center={this.state.justifyCenter} />;
     });
