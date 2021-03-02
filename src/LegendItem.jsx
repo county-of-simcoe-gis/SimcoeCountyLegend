@@ -8,7 +8,7 @@ function LegendItem(props) {
   // console.log(layer.imageUrl);
   return (
     <div className={props.center ? cx(styles.container, styles.containerCenter) : styles.container}>
-      <label className={styles.title}>{helpers.replaceAllInString(layer.layerName, "_", " ")}</label>
+      <label className={styles.title}>{layer.tocDisplayName}</label>
       <img className={props.center ? cx(styles.image, styles.imageCenter) : styles.image} src={layer.imageUrl} alt="Legend" />
     </div>
   );

@@ -45,7 +45,7 @@ class App extends Component {
         const onOrOff = params[group.value.split(":")[1]];
         let layers = [];
         group.layers.forEach((layer) => {
-          const layerObj = { imageUrl: layer.styleUrl, layerName: layer.name.split(":")[1] };
+          const layerObj = { imageUrl: layer.styleUrl, layerName: layer.name.split(":")[1],tocDisplayName: layer.tocDisplayName };
           layers.push(layerObj);
         });
         const groupObj = { label: group.label, value: group.value.split(":")[1], layers: layers };
@@ -198,6 +198,7 @@ class App extends Component {
   }
 
   render() {
+  
     const childElements = this.state.selectedGroups.map((group) => {
       return <GroupItem key={helpers.getUID()} group={group} center={this.state.justifyCenter} />;
     });
