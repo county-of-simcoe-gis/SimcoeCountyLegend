@@ -1,3 +1,5 @@
+#DEPRECIATED - This project has been integrated into Web Map viewer [WebViewer](https://github.com/county-of-simcoe-gis/SimcoeCountyWebViewer).
+
 # Simcoe County Legend
 
 ## Live demo can be found [here](https://opengis.simcoe.ca).
