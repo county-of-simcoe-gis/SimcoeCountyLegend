@@ -1,4 +1,4 @@
-# DEPRECIATED - This project has been integrated into Web Map viewer [WebViewer](https://github.com/county-of-simcoe-gis/SimcoeCountyWebViewer).
+# DEPRECATED - This project has been integrated into Web Map viewer [WebViewer](https://github.com/county-of-simcoe-gis/SimcoeCountyWebViewer). and will no longer be maintained
 
 # Simcoe County Legend
 
