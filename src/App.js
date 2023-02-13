@@ -10,12 +10,12 @@ import GroupItem from "./GroupItem";
 import Select from "react-select";
 import cx from "classnames";
 import mainConfig from "./config.json";
-import ReactGA from "react-ga";
+import ReactGA from "react-ga4";
 import xml2js from "xml2js";
 
 if (mainConfig.googleAnalyticsID !== undefined && mainConfig.googleAnalyticsID !== "") {
   ReactGA.initialize(mainConfig.googleAnalyticsID);
-  ReactGA.pageview(window.location.pathname + window.location.search);
+  ReactGA.send({ hitType: "pageview", page: window.location.pathname + window.location.search });
 }
 
 const mainGroupUrl = mainConfig.geoserverLayerGroupsUrl;
@@ -45,7 +45,7 @@ class App extends Component {
         const onOrOff = params[group.value.split(":")[1]];
         let layers = [];
         group.layers.forEach((layer) => {
-          const layerObj = { imageUrl: layer.styleUrl, layerName: layer.name.split(":")[1],tocDisplayName: layer.tocDisplayName };
+          const layerObj = { imageUrl: layer.styleUrl, layerName: layer.name.split(":")[1], tocDisplayName: layer.tocDisplayName };
           layers.push(layerObj);
         });
         const groupObj = { label: group.label, value: group.value.split(":")[1], layers: layers };
@@ -167,13 +167,13 @@ class App extends Component {
       let layerTitle = layer.Title[0];
       if (layerTitle === undefined) layerTitle = layerNameOnly;
       let keywords = [];
-      if ( layer.KeywordList !== undefined && layer.KeywordList.length > 0) keywords = layer.KeywordList[0].Keyword;
+      if (layer.KeywordList !== undefined && layer.KeywordList.length > 0) keywords = layer.KeywordList[0].Keyword;
 
       let styleUrl = layer.Style[0].LegendURL[0].OnlineResource[0].$["xlink:href"].replace("http", "https");
       let legendSizeOverride = this._getStaticImageLegend(keywords);
 
-      if (legendSizeOverride && styleUrl !== "" ) {
-        const legendSize = layer.Style !== undefined ? layer.Style[0].LegendURL[0].$ : [20,20];
+      if (legendSizeOverride && styleUrl !== "") {
+        const legendSize = layer.Style !== undefined ? layer.Style[0].LegendURL[0].$ : [20, 20];
         styleUrl = styleUrl.replace("width=20", `width=${legendSize.width}`).replace("height=20", `height=${legendSize.height}`);
       }
       const serverUrl = group.wmsGroupUrl.split("/geoserver/")[0] + "/geoserver";
@@ -217,7 +217,6 @@ class App extends Component {
   }
 
   render() {
-    
     const childElements = this.state.selectedGroups.map((group) => {
       return <GroupItem key={helpers.getUID()} group={group} center={this.state.justifyCenter} />;
     });
