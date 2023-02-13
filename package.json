@@ -1,7 +1,7 @@
 {
   "name": "legend",
   "homepage": "https://opengis.simcoe.ca/legend",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "dependencies": {
     "buffer": "^6.0.3",
