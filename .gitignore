@@ -13,6 +13,7 @@ config_dev.json
 
 # production
 /build
+/dist
 
 # misc
 .DS_Store

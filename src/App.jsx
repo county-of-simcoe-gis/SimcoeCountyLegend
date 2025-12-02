@@ -277,13 +277,10 @@ class App extends Component {
 
 export default App;
 
-// IMPORT ALL IMAGES
-const images = importAllImages(require.context("./images", false, /\.(png|jpe?g|svg|gif)$/));
-function importAllImages(r) {
-  let images = {};
-  // eslint-disable-next-line
-  r.keys().map((item, index) => {
-    images[item.replace("./", "")] = r(item);
-  });
-  return images;
-}
+// IMPORT ALL IMAGES - Vite uses import.meta.glob instead of require.context
+const imageModules = import.meta.glob('./images/*.{png,jpg,jpeg,svg,gif}', { eager: true });
+const images = {};
+Object.entries(imageModules).forEach(([path, module]) => {
+  const fileName = path.replace('./images/', '');
+  images[fileName] = module.default;
+});
