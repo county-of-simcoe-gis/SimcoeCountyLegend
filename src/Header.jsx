@@ -51,10 +51,13 @@ function Header(props) {
 
 export default Header;
 
-// IMPORT ALL IMAGES - Vite uses import.meta.glob instead of require.context
-const imageModules = import.meta.glob("./images/*.{png,jpg,jpeg,svg,gif}", { eager: true });
-const images = {};
-Object.entries(imageModules).forEach(([path, module]) => {
-  const fileName = path.replace("./images/", "");
-  images[fileName] = module.default;
-});
+// IMPORT ALL IMAGES - using direct imports for reliability in production
+import newWindowImg from './images/new-window-icon.png';
+import printImg from './images/print-icon.png';
+import shareImg from './images/share-icon.png';
+
+const images = {
+  'new-window-icon.png': newWindowImg,
+  'print-icon.png': printImg,
+  'share-icon.png': shareImg
+};

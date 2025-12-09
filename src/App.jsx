@@ -38,6 +38,13 @@ class App extends Component {
 
   componentDidMount() {
     this.getGroups(mainGroupUrl, (result) => {
+      // Handle case where result is null or empty
+      if (!result || !result[0] || !Array.isArray(result[0])) {
+        console.error("Failed to load groups from WMS");
+        this.setState({ groups: [], selectedGroups: [] });
+        return;
+      }
+
       let selectedGroups = [];
       const groups = result[0];
       let groupsObj = [];
@@ -75,80 +82,132 @@ class App extends Component {
     };
 
     helpers.httpGetText(url, (result) => {
-      var parser = new xml2js.Parser();
+      // Check if we got a valid response
+      if (!result || typeof result !== "string" || result.trim() === "") {
+        console.error("Empty or invalid response from WMS GetCapabilities");
+        callback([[], null]);
+        return;
+      }
 
-      // PARSE TO JSON
-      parser.parseString(result, (err, result) => {
-        let groupLayerList =
-          urlType === "root"
-            ? result.WMS_Capabilities.Capability[0].Layer[0].Layer
-            : urlType === "group"
-            ? result.WMS_Capabilities.Capability[0].Layer[0].Layer[0].Layer
-            : result.WMS_Capabilities.Capability[0].Layer[0].Layer;
-        let parentGroup =
-          urlType === "root"
-            ? result.WMS_Capabilities.Capability[0].Layer[0].Layer[0]
-            : urlType === "group"
-            ? result.WMS_Capabilities.Capability[0].Layer[0].Layer[0]
-            : result.WMS_Capabilities.Capability[0].Layer[0].Layer[0];
+      try {
+        var parser = new xml2js.Parser();
 
-        groupLayerList.forEach((layerInfo) => {
-          if (layerInfo.Layer !== undefined) {
-            const groupName = layerInfo.Name[0];
-            const groupDisplayName = layerInfo.Title[0];
-            const groupUrl = url.split("/geoserver/")[0] + "/geoserver/" + helpers.replaceAllInString(groupName, ":", "/") + "/ows?service=wms&version=1.3.0&request=GetCapabilities";
-            const fullGroupUrl = url.split("/geoserver/")[0] + "/geoserver/" + helpers.replaceAllInString(groupName, ":", "/") + "/ows?service=wms&version=1.3.0&request=GetCapabilities";
-
-            let layerList = [];
-            if (layerInfo.Layer !== undefined) {
-              const groupLayerList = layerInfo.Layer;
-
-              let layerIndex = groupLayerList.length + layerIndexStart;
-              const tmpGroupObj = {
-                value: groupName,
-                label: remove_underscore(groupDisplayName),
-                url: groupUrl,
-                wmsGroupUrl: fullGroupUrl,
-              };
-
-              const buildLayers = (layers) => {
-                if (layers === undefined) return;
-                layers.forEach((currentLayer) => {
-                  if (!this.isDuplicate(layerList, currentLayer.Name[0])) {
-                    this.buildLayerByGroup(tmpGroupObj, currentLayer, layerIndex, (result) => {
-                      layerList.push(result);
-                    });
-                    layerIndex--;
-
-                    buildLayers(currentLayer.Layer);
-                  }
-                });
-              };
-
-              buildLayers(layerInfo.Layer);
-            }
-
-            const groupObj = {
-              value: groupName,
-              label: remove_underscore(groupDisplayName),
-              url: groupUrl,
-              defaultGroup: isDefault,
-              wmsGroupUrl: fullGroupUrl,
-              layers: layerList,
-            };
-            if (groupObj.layers.length >= 1) {
-              groups.push(groupObj);
-              if (isDefault) {
-                defaultGroup = groupObj;
-                isDefault = false;
-              }
-            }
+        // PARSE TO JSON
+        parser.parseString(result, (err, parsedResult) => {
+          // Handle parsing errors
+          if (err) {
+            console.error("XML parsing error:", err);
+            callback([[], null]);
+            return;
           }
-        });
-      });
-      if (defaultGroup === undefined || defaultGroup === null) defaultGroup = groups[0];
 
-      callback([groups, defaultGroup]);
+          // Validate parsed result structure
+          if (
+            !parsedResult ||
+            !parsedResult.WMS_Capabilities ||
+            !parsedResult.WMS_Capabilities.Capability ||
+            !parsedResult.WMS_Capabilities.Capability[0] ||
+            !parsedResult.WMS_Capabilities.Capability[0].Layer ||
+            !parsedResult.WMS_Capabilities.Capability[0].Layer[0]
+          ) {
+            console.error("Invalid WMS Capabilities structure:", JSON.stringify(parsedResult, null, 2));
+            callback([[], null]);
+            return;
+          }
+
+          try {
+            const baseLayer = parsedResult.WMS_Capabilities.Capability[0].Layer[0];
+
+            // For "group" urlType, we need Layer[0].Layer[0].Layer
+            // First validate the nested structure exists
+            let groupLayerList;
+            if (urlType === "root") {
+              groupLayerList = baseLayer.Layer;
+            } else if (urlType === "group") {
+              // Need to access Layer[0].Layer - check it exists first
+              if (!baseLayer.Layer || !baseLayer.Layer[0] || !baseLayer.Layer[0].Layer) {
+                console.error("Invalid nested layer structure for group type. baseLayer:", JSON.stringify(baseLayer, null, 2));
+                callback([[], null]);
+                return;
+              }
+              groupLayerList = baseLayer.Layer[0].Layer;
+            } else {
+              groupLayerList = baseLayer.Layer;
+            }
+
+            // Validate groupLayerList exists
+            if (!groupLayerList || !Array.isArray(groupLayerList)) {
+              console.error("No layer groups found in WMS Capabilities. groupLayerList:", groupLayerList);
+              callback([[], null]);
+              return;
+            }
+
+            groupLayerList.forEach((layerInfo) => {
+              if (layerInfo.Layer !== undefined) {
+                const groupName = layerInfo.Name[0];
+                const groupDisplayName = layerInfo.Title[0];
+                const groupUrl = url.split("/geoserver/")[0] + "/geoserver/" + helpers.replaceAllInString(groupName, ":", "/") + "/ows?service=wms&version=1.3.0&request=GetCapabilities";
+                const fullGroupUrl = url.split("/geoserver/")[0] + "/geoserver/" + helpers.replaceAllInString(groupName, ":", "/") + "/ows?service=wms&version=1.3.0&request=GetCapabilities";
+
+                let layerList = [];
+                if (layerInfo.Layer !== undefined) {
+                  const groupLayerListInner = layerInfo.Layer;
+
+                  let layerIndex = groupLayerListInner.length + layerIndexStart;
+                  const tmpGroupObj = {
+                    value: groupName,
+                    label: remove_underscore(groupDisplayName),
+                    url: groupUrl,
+                    wmsGroupUrl: fullGroupUrl,
+                  };
+
+                  const buildLayers = (layers) => {
+                    if (layers === undefined) return;
+                    layers.forEach((currentLayer) => {
+                      if (!this.isDuplicate(layerList, currentLayer.Name[0])) {
+                        this.buildLayerByGroup(tmpGroupObj, currentLayer, layerIndex, (layerResult) => {
+                          layerList.push(layerResult);
+                        });
+                        layerIndex--;
+
+                        buildLayers(currentLayer.Layer);
+                      }
+                    });
+                  };
+
+                  buildLayers(layerInfo.Layer);
+                }
+
+                const groupObj = {
+                  value: groupName,
+                  label: remove_underscore(groupDisplayName),
+                  url: groupUrl,
+                  defaultGroup: isDefault,
+                  wmsGroupUrl: fullGroupUrl,
+                  layers: layerList,
+                };
+                if (groupObj.layers.length >= 1) {
+                  groups.push(groupObj);
+                  if (isDefault) {
+                    defaultGroup = groupObj;
+                    isDefault = false;
+                  }
+                }
+              }
+            });
+          } catch (e) {
+            console.error("Error processing WMS Capabilities:", e);
+            callback([[], null]);
+            return;
+          }
+
+          if (defaultGroup === undefined || defaultGroup === null) defaultGroup = groups[0];
+          callback([groups, defaultGroup]);
+        });
+      } catch (parseError) {
+        console.error("Error initializing XML parser:", parseError);
+        callback([[], null]);
+      }
     });
   }
 
@@ -229,31 +288,31 @@ class App extends Component {
     };
 
     return (
-      <div className={styles.mainContainer} id="sc-legend-app-main-container">
+      <div className={styles.mainContainer || ''} id="sc-legend-app-main-container">
         <Header onShareClick={this.onShareClick} />
         <div style={{ marginLeft: "5px" }}>
           <label>Groups:</label>
-          <div className={styles.selectContainer}>
-            <Select
-              isMulti
-              name="groups"
-              options={this.state.groups}
-              className="basic-multi-select"
-              classNamePrefix="select"
-              onChange={this.handleChange}
-              selectedOption={this.state.selectedGroups}
+          <div className={styles.selectContainer || ''}>
+            <Select 
+              isMulti 
+              name="groups" 
+              options={this.state.groups} 
+              classNamePrefix="select" 
+              onChange={this.handleChange} 
               value={this.state.selectedGroups}
+              getOptionLabel={(option) => option?.label || ''}
+              getOptionValue={(option) => option?.value || ''}
             />
           </div>
         </div>
 
-        <div className={styles.justifyButtons}>
-          <div className={this.state.justifyCenter ? styles.justifyButtonContainer : cx(styles.justifyButtonContainer, styles.activeButton)} onClick={() => this.setState({ justifyCenter: false })}>
-            <img className={styles.justifyImage} src={images["left-justify.png"]} alt="left-justify" title="Left Justify"></img>
+        <div className={styles.justifyButtons || ''}>
+          <div className={this.state.justifyCenter ? (styles.justifyButtonContainer || '') : cx(styles.justifyButtonContainer || '', styles.activeButton || '')} onClick={() => this.setState({ justifyCenter: false })}>
+            <img className={styles.justifyImage || ''} src={images["left-justify.png"]} alt="left-justify" title="Left Justify"></img>
           </div>
 
-          <div className={this.state.justifyCenter ? cx(styles.justifyButtonContainer, styles.activeButton) : styles.justifyButtonContainer} onClick={() => this.setState({ justifyCenter: true })}>
-            <img className={styles.justifyImage} src={images["center-justify.png"]} alt="right-justify" title="Center Justify"></img>
+          <div className={this.state.justifyCenter ? cx(styles.justifyButtonContainer || '', styles.activeButton || '') : (styles.justifyButtonContainer || '')} onClick={() => this.setState({ justifyCenter: true })}>
+            <img className={styles.justifyImage || ''} src={images["center-justify.png"]} alt="right-justify" title="Center Justify"></img>
           </div>
         </div>
         <Masonry breakpointCols={breakpointColumnsObj} className="my-masonry-grid" columnClassName="my-masonry-grid_column">
@@ -277,10 +336,17 @@ class App extends Component {
 
 export default App;
 
-// IMPORT ALL IMAGES - Vite uses import.meta.glob instead of require.context
-const imageModules = import.meta.glob('./images/*.{png,jpg,jpeg,svg,gif}', { eager: true });
-const images = {};
-Object.entries(imageModules).forEach(([path, module]) => {
-  const fileName = path.replace('./images/', '');
-  images[fileName] = module.default;
-});
+// IMPORT ALL IMAGES - using direct imports for reliability in production
+import leftJustifyImg from "./images/left-justify.png";
+import centerJustifyImg from "./images/center-justify.png";
+import newWindowImg from "./images/new-window-icon.png";
+import printImg from "./images/print-icon.png";
+import shareImg from "./images/share-icon.png";
+
+const images = {
+  "left-justify.png": leftJustifyImg,
+  "center-justify.png": centerJustifyImg,
+  "new-window-icon.png": newWindowImg,
+  "print-icon.png": printImg,
+  "share-icon.png": shareImg,
+};

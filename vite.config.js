@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import path from 'path'
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -15,10 +16,10 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      events: 'events',
-      stream: 'stream-browserify',
-      string_decoder: 'string_decoder',
-      timers: 'timers-browserify'
+      events: path.resolve('./node_modules/events'),
+      stream: path.resolve('./node_modules/stream-browserify'),
+      string_decoder: path.resolve('./node_modules/string_decoder'),
+      timers: path.resolve('./node_modules/timers-browserify')
     }
   },
   define: {
