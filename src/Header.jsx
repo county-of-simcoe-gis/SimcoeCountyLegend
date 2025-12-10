@@ -51,13 +51,13 @@ function Header(props) {
 
 export default Header;
 
-// IMPORT ALL IMAGES
-const images = importAllImages(require.context("./images", false, /\.(png|jpe?g|svg|gif)$/));
-function importAllImages(r) {
-  let images = {};
-  // eslint-disable-next-line
-  r.keys().map((item, index) => {
-    images[item.replace("./", "")] = r(item);
-  });
-  return images;
-}
+// IMPORT ALL IMAGES - using direct imports for reliability in production
+import newWindowImg from './images/new-window-icon.png';
+import printImg from './images/print-icon.png';
+import shareImg from './images/share-icon.png';
+
+const images = {
+  'new-window-icon.png': newWindowImg,
+  'print-icon.png': printImg,
+  'share-icon.png': shareImg
+};

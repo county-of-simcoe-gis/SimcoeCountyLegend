@@ -59,14 +59,22 @@ export function replaceAllInString(str, find, replace) {
 // HTTP GET (NO WAITING)
 export function httpGetText(url, callback) {
   return fetch(url)
-    .then((response) => response.text())
+    .then((response) => {
+      if (!response.ok) {
+        console.error(`HTTP error fetching ${url}: ${response.status} ${response.statusText}`);
+        if (callback !== undefined) callback(null);
+        return null;
+      }
+      return response.text();
+    })
     .then((responseText) => {
       // CALLBACK WITH RESULT
-      if (callback !== undefined) callback(responseText);
+      if (responseText !== null && callback !== undefined) callback(responseText);
     })
     .catch((error) => {
-      //httpGetText(url.replace("opengis.simcoe.ca", "opengis2.simcoe.ca"), callback);
-      console.error(error);
+      console.error(`Error fetching ${url}:`, error);
+      // Call callback with null so the caller can handle the error
+      if (callback !== undefined) callback(null);
     });
 }
 
